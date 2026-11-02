@@ -31,7 +31,7 @@ jobs:
         with:
           packages: platform-tools platforms;android-34 platforms;android-35 build-tools;34.0.0 build-tools;35.0.0
 
-      - name: Extraer, corregir y compilar
+      - name: Extraer y corregir proyecto
         shell: bash
         run: |
           set -euo pipefail
@@ -51,37 +51,25 @@ jobs:
 
           cd "$PROJECT_DIR"
 
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          import sys
+          XML_FILE="app/src/main/res/xml/countdown_widget_info.xml"
 
-          xml_file = Path("app/src/main/res/xml/countdown_widget_info.xml")
+          if [ ! -f "$XML_FILE" ]; then
+            echo "ERROR: No se encuentra el XML del widget."
+            exit 1
+          fi
 
-          if not xml_file.is_file():
-              print("ERROR: No se encuentra el XML del widget.")
-              sys.exit(1)
+          echo "XML original:"
+          cat "$XML_FILE"
 
-          source = xml_file.read_text(encoding="utf-8")
+          sed -i 's/[[:space:]]*android:description="[^"]*"//g' "$XML_FILE"
 
-          fixed, count = re.subn(
-              r"""\\s+(?:android:)?description\\s*=\\s*(?:"[^"]*"|'[^']*')""",
-              "",
-              source,
-              flags=re.IGNORECASE
-          )
+          if grep -q 'android:description=' "$XML_FILE"; then
+            echo "ERROR: El atributo sigue presente."
+            exit 1
+          fi
 
-          if count == 0 and re.search(r"\bdescription\s*=", source, re.IGNORECASE):
-              print("ERROR: No se pudo corregir el atributo description.")
-              print(source)
-              sys.exit(1)
-
-          if count > 0:
-              xml_file.write_text(fixed, encoding="utf-8")
-              print(f"CORRECTO: Se han corregido {count} atributos description.")
-
-          print(xml_file.read_text(encoding="utf-8"))
-          PY
+          echo "CORRECTO: Atributo description eliminado."
+          cat "$XML_FILE"
 
           gradle --no-daemon assembleDebug
 
@@ -90,7 +78,7 @@ jobs:
           APK=$(find . -type f -path '*/build/outputs/apk/debug/*.apk' -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "ERROR: No se encontró el APK generado."
+            echo "ERROR: No se encontró el APK."
             exit 1
           fi
 
