@@ -24,14 +24,44 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Dar permisos a Gradle
-        run: chmod +x gradlew
+      - name: Extraer y compilar
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Compilar APK
-        run: ./gradlew assembleDebug
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+          unzip -q GTA6Countdown_GitHub_Actions.zip -d extracted
+
+          WRAPPER=$(find extracted -type f -name gradlew -print -quit)
+
+          if [ -z "$WRAPPER" ]; then
+            echo "ERROR: No se encontró gradlew dentro del ZIP."
+            find extracted -maxdepth 4 -type f
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$WRAPPER")
+
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+          mkdir -p "$GITHUB_WORKSPACE/output"
+
+          APK=$(find . -type f -path '*/build/outputs/apk/debug/*.apk' -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se encontró el APK generado."
+            exit 1
+          fi
+
+          cp "$APK" "$GITHUB_WORKSPACE/output/GTA6Countdown.apk"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
           name: GTA6Countdown-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: output/GTA6Countdown.apk
+          if-no-files-found: error
