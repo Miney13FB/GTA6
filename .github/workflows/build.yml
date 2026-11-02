@@ -31,7 +31,7 @@ jobs:
         with:
           packages: platform-tools platforms;android-34 platforms;android-35 build-tools;34.0.0 build-tools;35.0.0
 
-      - name: Extraer y compilar proyecto
+      - name: Extraer, corregir y compilar
         shell: bash
         run: |
           set -euo pipefail
@@ -50,6 +50,38 @@ jobs:
           fi
 
           cd "$PROJECT_DIR"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          xml_file = Path("app/src/main/res/xml/countdown_widget_info.xml")
+
+          if not xml_file.is_file():
+              print("ERROR: No se encuentra el XML del widget.")
+              sys.exit(1)
+
+          source = xml_file.read_text(encoding="utf-8")
+
+          fixed, count = re.subn(
+              r"""\\s+(?:android:)?description\\s*=\\s*(?:"[^"]*"|'[^']*')""",
+              "",
+              source,
+              flags=re.IGNORECASE
+          )
+
+          if count == 0 and re.search(r"\bdescription\s*=", source, re.IGNORECASE):
+              print("ERROR: No se pudo corregir el atributo description.")
+              print(source)
+              sys.exit(1)
+
+          if count > 0:
+              xml_file.write_text(fixed, encoding="utf-8")
+              print(f"CORRECTO: Se han corregido {count} atributos description.")
+
+          print(xml_file.read_text(encoding="utf-8"))
+          PY
 
           gradle --no-daemon assembleDebug
 
