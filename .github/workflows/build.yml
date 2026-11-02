@@ -21,10 +21,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Instalar Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools
+          packages: platform-tools platforms;android-34 platforms;android-35 build-tools;34.0.0 build-tools;35.0.0
 
       - name: Extraer y compilar proyecto
         shell: bash
@@ -36,21 +41,17 @@ jobs:
 
           unzip -q GTA6Countdown_GitHub_Actions.zip -d extracted
 
-          WRAPPER=$(find extracted -type f -name gradlew -print -quit)
+          PROJECT_DIR="extracted/GTA6CountdownAndroid"
 
-          if [ -z "$WRAPPER" ]; then
-            echo "ERROR: No se encontró gradlew dentro del ZIP."
+          if [ ! -f "$PROJECT_DIR/settings.gradle" ]; then
+            echo "ERROR: No se encuentra settings.gradle"
             find extracted -maxdepth 5 -type f
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$WRAPPER")
-
           cd "$PROJECT_DIR"
 
-          chmod +x gradlew
-
-          ./gradlew assembleDebug
+          gradle --no-daemon assembleDebug
 
           mkdir -p "$GITHUB_WORKSPACE/output"
 
