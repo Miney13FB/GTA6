@@ -23,8 +23,10 @@ jobs:
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
-      - name: Extraer y compilar
+      - name: Extraer y compilar proyecto
         shell: bash
         run: |
           set -euo pipefail
@@ -38,14 +40,16 @@ jobs:
 
           if [ -z "$WRAPPER" ]; then
             echo "ERROR: No se encontró gradlew dentro del ZIP."
-            find extracted -maxdepth 4 -type f
+            find extracted -maxdepth 5 -type f
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$WRAPPER")
 
           cd "$PROJECT_DIR"
+
           chmod +x gradlew
+
           ./gradlew assembleDebug
 
           mkdir -p "$GITHUB_WORKSPACE/output"
