@@ -1,0 +1,76 @@
+name: Compilar APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - "**.md"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: compilar-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Descargar el proyecto
+        uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar Capacitor
+        run: npm install --no-audit --no-fund
+
+      - name: Preparar la web
+        run: npm run www
+
+      - name: Crear el proyecto Android
+        run: npx cap add android
+
+      - name: Copiar la web al proyecto Android
+        run: npx cap sync android
+
+      - name: Aceptar licencias de Android
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Compilar el APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Poner nombre al APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk GTA6-LIFE.apk
+
+      - name: Guardar el APK en la pestaña Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA6-LIFE-apk
+          path: GTA6-LIFE.apk
+
+      - name: Publicar el APK en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete apk-latest --yes --cleanup-tag || true
+          gh release create apk-latest GTA6-LIFE.apk \
+            --title "GTA6 LIFE - APK" \
+            --notes "APK de prueba (debug), generado automáticamente. Descárgalo e instálalo en el móvil." \
+            --target "$GITHUB_SHA"
